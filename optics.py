@@ -20,7 +20,7 @@ from scipy.signal import convolve2d as conv2
 class FieldArray:
 
     def __init__(self, array=np.array([0]), lam=1e-9, pix=13.5e-6, center=(0, 0), label=''):
-        self.field = array
+        self.field = array.astype('complex128')
         self.Nx = np.size(array, 1)
         self.Ny = np.size(array, 0)
         self.lam = lam  # wavelength
