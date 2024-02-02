@@ -20,7 +20,7 @@ from scipy.signal import convolve2d as conv2
 class FieldArray:
 
     def __init__(self, array=np.array([0]), lam=1e-9, pix=13.5e-6, center=(0, 0), label=''):
-        self.field = array
+        self.field = array.astype('complex128')
         self.Nx = np.size(array, 1)
         self.Ny = np.size(array, 0)
         self.lam = lam  # wavelength
@@ -156,13 +156,16 @@ class FieldArray:
         # plt.savefig(str(n))
         return
 
-    def show_phase(self, n=None, label=None):
+    def show_phase(self, n=None, label=None, only_phase=False):
 
         fig = plt.figure(n)
 
         img_hue = np.angle(self.field)
         img_sat = np.ones(self.field.shape)
-        img_val = np.abs(self.field)
+        if only_phase:
+            img_val = np.ones(self.field.shape)
+        else:
+            img_val = np.abs(self.field)
 
         img_hue += np.pi
         img_hue /= 2 * np.pi
@@ -172,7 +175,12 @@ class FieldArray:
         img = np.dstack((img_hue, img_sat, img_val))
         # plt.imshow(hsv_to_rgb(img), extent=[-self.edge, self.edge, -self.edge, self.edge], cmap='hsv')
         # edge = float(self.edge)
-        plt.imshow(hsv_to_rgb(img), extent=[self.edge[0][0], self.edge[0][1], self.edge[1][1], self.edge[1][0]], cmap='hsv', aspect='auto')
+        if only_phase:
+            plt.imshow(np.angle(self.field), extent=[self.edge[0][0], self.edge[0][1], self.edge[1][1], self.edge[1][0]],
+                       cmap='hsv', aspect='auto')
+        else:
+            plt.imshow(hsv_to_rgb(img), extent=[self.edge[0][0], self.edge[0][1], self.edge[1][1], self.edge[1][0]],
+                       cmap='hsv', aspect='auto')
         plt.ticklabel_format(style='sci', scilimits=(0,0))
         # plt.imshow(hsv_to_rgb(img), cmap='hsv')
         plt.colorbar()
@@ -342,6 +350,17 @@ def sphere_wave(z0=-1, pix=13.5e-6, N=2000, x0=0, y0=0, lam=1e-9, amplitude=1, l
     f_out = np.exp(1j * phase)*amplitude*pix/(2*np.sqrt(z0 ** 2 + (x - x0) ** 2 + (y - y0) ** 2)*np.sqrt(np.pi))
 
     out = FieldArray(array=f_out, lam=lam, pix=pix, label=label)
+    return out
+
+
+def gaussian_beam(x_width=5e-3, y_width=5e-3, center=(0, 0), pix=8e-6, N=(1000, 1000), lam=1.03e-6, label=None):
+    x_grid, y_grid = pix * np.mgrid[-0.5*N[1]:0.5*N[1], -0.5*N[0]:0.5*N[0]]
+    exponent = -((x_grid - center[1]) ** 2 / (2 * (x_width/2) ** 2) + (y_grid - center[0]) ** 2 / (2 * (y_width/2) ** 2))
+    power = np.exp(exponent)
+    field = np.sqrt(power) * np.exp(1j*0)
+
+    out = FieldArray(array=field, lam=lam, pix=pix, label=label)
+
     return out
 
 
