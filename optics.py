@@ -9,6 +9,8 @@ from high_math import *
 from copy import deepcopy
 import warnings
 from scipy.signal import convolve2d as conv2
+from scipy.ndimage import rotate as imrotate
+import random
 
 
 
@@ -325,8 +327,9 @@ class FieldArray:
         # plt.savefig(str(n))
         return
 
-    def add_mask(self, mask):
+    def add_mask(self, mask, T=0):
         out = deepcopy(self)
+        mask = mask * (1 - T) + T
         out.field *= mask
         return out
 
@@ -342,10 +345,14 @@ class FieldArray:
 
 
 def sphere_wave(z0=-1, pix=13.5e-6, N=2000, x0=0, y0=0, lam=1e-9, amplitude=1, label=None):
-
+    if type(N) is int:
+        N = (N, N)
+    Nx = N[0]
+    Ny = N[1]
     k = 2*np.pi/lam
-    t = np.linspace(-N*pix/2, N*pix/2, N)
-    x, y = np.meshgrid(t, t)
+    tx = np.linspace(-Nx*pix/2, Nx*pix/2, Nx)
+    ty = np.linspace(-Ny*pix/2, Ny*pix/2, Ny)
+    x, y = np.meshgrid(tx, ty)
     phase = ((x - x0) ** 2 + (y - y0) ** 2) * k / (2 * z0)
     f_out = np.exp(1j * phase)*amplitude*pix/(2*np.sqrt(z0 ** 2 + (x - x0) ** 2 + (y - y0) ** 2)*np.sqrt(np.pi))
 
@@ -526,8 +533,12 @@ def tg(Nx=2000, Ny=2000, N=None, period=100e-9, aper=100e-9, structure='full', y
 
 
 def zone_plate(lam=13.5e-9, f=.1, N=2000, pix=1e-6, center=(0, 0)):
-    Nx = N
-    Ny = N
+    if type(N) is tuple:
+        Nx = N[0]
+        Ny = N[1]
+    else:
+        Nx = N
+        Ny = N
     tx = segment_around(center[0], pix, Nx)
     ty = segment_around(center[1], pix, Ny)
     X, Y = np.meshgrid(tx, ty)
@@ -540,6 +551,69 @@ def zone_plate(lam=13.5e-9, f=.1, N=2000, pix=1e-6, center=(0, 0)):
 
     mask = np.sum(R2[:, :, np.newaxis] > r2_n, 2) % 2
     return mask
+
+
+def kipp_mask(lam=13.5e-9, f=.1, center=(0, 0), minimal_hole = 2e-6, d2w=1, tem_grid_size=None):
+    pix = minimal_hole/4
+    n = np.arange(0, 21)
+    r_n = np.sqrt(n*lam*f+0.25*(n**2)*(lam**2))
+    dr_n = np.concatenate([np.diff(r_n), np.array([0])])  # odd are darks, even are brights since we begin with 0. first one is bright..
+    n_max = dr_n > minimal_hole/d2w
+    n_max = np.max(n[n_max])
+
+    if n_max%2 == 0:
+        n_max -= 1
+
+    r_max = np.sqrt(n_max*lam*f+0.25*(n_max**2)*(lam**2))
+    N = int(np.ceil(2*r_max/pix))
+    if tem_grid_size is not None:
+        N = int(np.ceil(tem_grid_size/pix))
+    tx = segment_around(center[0], pix, N)
+    ty = segment_around(center[1], pix, N)
+    X, Y = np.meshgrid(tx, ty)
+    R2 = X**2 + Y**2
+    R = np.sqrt(R2)
+    Theta = np.arctan2(Y, X)
+    # Theta[int(np.ceil(N/2)):, :] += np.pi
+    mask = np.zeros([N, N, n_max])
+
+
+    pinholes = []
+    for i in range(0, n_max-1, 2):
+        r_i = np.sqrt(i*lam*f+0.25*(i**2)*(lam**2))
+        r_ip1 = np.sqrt((i+1)*lam*f+0.25*((i+1)**2)*(lam**2))
+        r = (r_i+r_ip1)/2
+        perim = 2*np.pi*r
+        r2 = r**2
+        d = dr_n[i] * d2w
+        nh = int(np.ceil(perim/d/2))
+        delta_theta = 2 * np.pi / nh
+        # thetas = np.arange(0, 2 * np.pi, delta_theta)
+        thetas = np.linspace(-np.pi, np.pi, nh, endpoint=False)
+        N_i = int(np.ceil(d/pix))
+        ph = pinhole(N_i)
+        if i==0:
+            ph = pinhole(N, r=2*r_ip1/pix/N)
+        ph = np.abs(ph).astype('float_')
+        pinholes.append(ph)
+        ring = np.abs(R-r) < pix
+        dtheta = pix/r
+        asterisk = np.sum(np.abs(np.expand_dims(Theta, axis=2) - np.reshape(thetas, (1, 1, nh))) < dtheta, axis=2)
+        centers = ring * asterisk
+        if i==0:
+            centers = R<pix
+            # if N%2 == 0:
+            #     centers /= 4
+        mask[:, :, i] = imrotate(conv2(centers, ph, mode='same'), random.uniform(0, 360), reshape=False)
+
+
+    return np.sum(mask, axis=2), pix
+
+
+
+
+
+
 
 def segment_around(center, dx, N):
     return np.linspace(center-(N-1)*dx/2, center+(N-1)*dx/2, N)

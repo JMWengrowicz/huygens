@@ -39,7 +39,7 @@ def filter(material, width=np.array([1]), photon=np.array([wavelength2eV(1e-9)])
     # complex_density_list = [3.44]  # g/cm^3
     # loc = 'U:/Plasma_Physics/Jonathan Wengrowicz/Python Modules/'
     # loc = 'C:/Users/yonatanwe/PycharmProjects/beta_version_modules/CXRO'
-    loc = 'C:/Users\Dell/OneDrive - weizmann.ac.il/Documents/Python/Packages/pythonhuygens/'
+    loc = 'C:/Users/jonat/Documents/huygens/'
     width = width*1e-9
     # arc_name = loc + 'sf.tar.gz'
     # periodic_table = loc + 'periodic_table.csv'
@@ -72,7 +72,7 @@ def filter(material, width=np.array([1]), photon=np.array([wavelength2eV(1e-9)])
             sub_T = np.zeros([len(photon), len(width)], dtype="complex_")
 
         table_name = m.lower()+'.nff'
-        table = pd.read_csv(arc.extractfile(table_name), '\t')
+        table = pd.read_csv(arc.extractfile(table_name), sep='\t')
         f1 = table['E(eV)']  # due to bug with the importing
         eV = f1.index
         f1 = f1.values
