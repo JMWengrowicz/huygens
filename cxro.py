@@ -159,7 +159,7 @@ def Si3N4(width=np.array([1]), photon=np.array([wavelength2eV(1e-9)]), photon_ty
     for i in range(len(idx)-1):
         m = material[idx[i]:(idx[i+1])]
         table_name = m.lower()+'.nff'
-        table = pd.read_csv(arc.extractfile(table_name), '\t')
+        table = pd.read_csv(arc.extractfile(table_name), sep='\t')
         f1 = table['E(eV)']  # due to bug with the importing
         eV = f1.index
         f1 = f1.values
